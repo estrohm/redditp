@@ -9,6 +9,7 @@
 // TODO: refactor all the globals to use the rp object's namespace.
 var rp = {};
 
+bar galleryOffset = 0;
 rp.settings = {
     debug: true,
     // Speed of the animation
@@ -89,10 +90,13 @@ $(function () {
     // and instead the minimize buttons should be used.
     //setupFadeoutOnIdle();
 
-    var getNextSlideIndex = function (currentIndex) {
+    var getNextSlideIndex = function (currentIndex, offset) {
+        if (!offset) {
+            offset = 1;
+        }
         if (!rp.settings.nsfw) {
             // Skip any nsfw if you should
-            for (var i = currentIndex + 1; i < rp.photos.length; i++) {
+            for (var i = currentIndex + offset; i < rp.photos.length; i++) {
                 if (!rp.photos[i].over18) {
                     return i;
                 }
@@ -105,11 +109,11 @@ $(function () {
             return 0;
         }
         // Just go to the next slide, this should be the common case
-        return currentIndex + 1;
+        return currentIndex + offset;
     };
 
-    function nextSlide() {
-        var next = getNextSlideIndex(rp.session.activeIndex);
+    function nextSlide(offset) {
+        var next = getNextSlideIndex(rp.session.activeIndex, offset);
         saveHistory(next);
         startAnimation(next);
     }
@@ -360,17 +364,80 @@ $(function () {
         }
         */
 
-        var pic = embedit.redditItemToPic(item);
-        if (!pic) {
-            return;
-        }
+        // var pic = embedit.redditItemToPic(item);
+        // if (!pic) {
+        //     return;
+        // }
 
-        rp.session.foundOneImage = true;
+        // rp.session.foundOneImage = true;
 
-        for (i = 0; i < rp.photos.length; i += 1) {
-            if (pic.url === rp.photos[i].url) {
+        // for (i = 0; i < rp.photos.length; i += 1) {
+        //     if (pic.url === rp.photos[i].url) {
+        if (!item.data.is_gallery) {
+            var pic = embedit.redditItemToPic(item);
+            if (!pic) {
                 return;
             }
+            if (rp.photos.some(photo => photo.url === pic.url)) {
+                return;
+            }
+            rp.photos.push(pic);
+            rp.session.foundOneImage = true;
+            
+            var i = rp.photos.length - 1;
+            var numberButton = $("<a />").html((i+1)-galleryOffset)
+                .data("index", i)
+                .attr("title", rp.photos[i].title)
+                .attr("id", "numberButton" + (i+1));
+            if (pic.over18) {
+                numberButton.addClass("over18");
+            }
+            numberButton.click(function () {
+                showImage($(this));
+            });
+            numberButton.addClass("numberButton");
+            addNumberButton(numberButton);
+        } else {
+            const x = (rp.photos.length + 1) - galleryOffset;
+            galleryOffset += item.data.gallery_data.items.length - 1;
+            $.each(item.data.gallery_data.items, function (j, image) {
+                pic = {
+                    "title": item.data.title,
+                    "url": `https://i.redd.it/${image.media_id}.${item.data.media_metadata[image.media_id].m.split('/')[1]}`,
+                    "data": item.data,
+                    "commentsLink": item.data.url,
+                    "over18": item.data.over_18,
+                    "isVideo": item.data.is_video,
+                    "subreddit": item.data.subreddit,
+                    "galleryItem": j+1,
+                    "galleryTotal": item.data.gallery_data.items.length,
+                    "userLink": item.data.author,
+                    "type": item.data.media_metadata[image.media_id].m.split('/')[0]
+                };
+                if (rp.photos.some(photo => photo.url === pic.url)) {
+                    return;
+                }
+                rp.photos.push(pic);
+                rp.session.foundOneImage = true;
+            });
+
+            // This section doesn't make any sense. What is "pic" supposed to be? Right now it's the last image in the gallery (i think)
+            var i = rp.photos.length - 1;
+            var numberButton = $("<a />").html(x)
+                .data("index", i - (rp.photos[i].galleryItem - 1))
+                .attr("title", rp.photos[i].title)
+                .attr("id", "numberButton" + ((i + 1) - (rp.photos[i].galleryTotal - 1)))
+                .addClass("gallery")
+                .addClass("numberButton");
+            if (pic.over18) {
+                numberButton.append($("<a />").html(`/${rp.photos[i].galleryTotal}`).css({fontSize: 10}).addClass("over18"));
+            } else {
+                numberButton.append($("<a />").html(`/${rp.photos[i].galleryTotal}`).css({fontSize: 10}));
+            }
+            numberButton.click(function() {
+                showImage($(this));
+            });
+            addNumberButton(numberButton);
         }
 
 
@@ -378,49 +445,35 @@ $(function () {
         // Especially in gif or high-res subreddits where each image can be 50 MB.
         // My high-end desktop browser was unresponsive at times.
         //preLoadImages(pic.url);
-        rp.photos.push(pic);
-
-        var i = rp.photos.length - 1;
-        var numberButton = $("<a />").html(i + 1)
-            .data("index", i)
-            .attr("title", rp.photos[i].title)
-            .attr("id", "numberButton" + (i + 1));
-        if (pic.over18) {
-            numberButton.addClass("over18");
-        }
-        numberButton.click(function () {
-            showImage($(this));
-        });
-        numberButton.addClass("numberButton");
-        addNumberButton(numberButton);
     };
 
-    var arrow = {
+    const arrow = {
         left: 37,
         up: 38,
         right: 39,
         down: 40
     };
-    //var ONE_KEY = 49;
-    //var NINE_KEY = 57;
-    var SPACE = 32;
-    var PAGEUP = 33;
-    var PAGEDOWN = 34;
-    //var ENTER = 13;
-    var A_KEY = 65;
-    var C_KEY = 67;
-    var M_KEY = 77;
-    var F_KEY = 70;
-    var I_KEY = 73;
-    var R_KEY = 82;
-    var T_KEY = 84;
-    var W_KEY = 87;
-    var S_KEY = 83;
-    var U_KEY = 85;
+    //const ONE_KEY = 49;
+    //const NINE_KEY = 57;
+    const SPACE = 32;
+    const PAGEUP = 33;
+    const PAGEDOWN = 34;
+    //const ENTER = 13;
+    const A_KEY = 65;
+    const C_KEY = 67;
+    const F_KEY = 70;
+    const G_KEY = 71;
+    const I_KEY = 73;
+    const M_KEY = 77;
+    const R_KEY = 82;
+    const S_KEY = 83;
+    const T_KEY = 84;
+    const U_KEY = 85;
+    const W_KEY = 87;
 
 
     // Register keyboard events on the whole document
-    $(document).keyup(function (e) {
+    $(document).keyup(async function (e) {
         if (e.ctrlKey) {
             // ctrl key is pressed so we're most likely switching tabs or doing something
             // unrelated to redditp UI
@@ -475,6 +528,9 @@ $(function () {
             case SPACE:
             case S_KEY:
                 return nextSlide();
+            case G_KEY:
+                skipGallery();
+                break;
         }
     });
 
@@ -576,7 +632,7 @@ $(function () {
     // Starts the animation, based on the image index
     //
     // Variable to store if the animation is playing or not
-    var startAnimation = function (imageIndex) {
+    var startAnimation = async function (imageIndex) {
         resetNextSlideTimer();
 
         if (rp.session.isAnimating) {
@@ -592,7 +648,7 @@ $(function () {
         }
 
         rp.session.isAnimating = true;
-        animateNavigationBox(imageIndex);
+        await animateNavigationBox(imageIndex);
         slideBackgroundPhoto(imageIndex);
         preloadNextImage(imageIndex);
 
@@ -604,8 +660,15 @@ $(function () {
         }
     };
 
-    var toggleNumberButton = function (imageIndex, turnOn) {
-        var numberButton = $('#numberButton' + (imageIndex + 1));
+    var toggleNumberButton = async function (imageIndex, turnOn) {
+        if (imageIndex < 0) { return; }
+        var photo = rp.photos[imageIndex];
+        var numberButton;
+        if (!photo.galleryItem) {
+            numberButton = $(`#numberButton${imageIndex+1}`);
+        } else {
+            numberButton = $(`#numberButton${(imageIndex + 1) - (rp.photos[imageIndex].galleryItem - 1)}`);
+        }
         if (turnOn) {
             numberButton.addClass('active');
         } else {
@@ -616,7 +679,7 @@ $(function () {
     //
     // Animate the navigation box
     //
-    var animateNavigationBox = function (imageIndex) {
+    var animateNavigationBox = async function (imageIndex) {
         var photo = rp.photos[imageIndex];
         var subreddit = '/r/' + photo.subreddit;
         var user = '/u/' + photo.userLink + '/submitted';
@@ -625,12 +688,17 @@ $(function () {
         $('#navboxSubreddit').attr('href', embedit.redditBaseUrl + subreddit).html(subreddit);
         $('#navboxLink').attr('href', photo.url).attr('title', photo.title);
         $('#navboxCommentsLink').attr('href', photo.commentsLink).attr('title', "Comments on reddit");
-        $('#navboxUser').attr('href', 'https://redditp.com' + user).attr('user', "User on reddit");
+        $('#navboxUser').attr('href', window.location.origin + user).attr('user', "User on reddit");
+        if (photo.galleryItem) {
+            $("#navboxGallery").text(`Gallery: ${photo.galleryItem}/${photo.galleryTotal}`);
+        } else {
+            $("#navboxGallery").text("");
+        }
 
         document.title = photo.title + " - " + subreddit + " - redditP";
 
-        toggleNumberButton(rp.session.activeIndex, false);
-        toggleNumberButton(imageIndex, true);
+        await toggleNumberButton(rp.session.activeIndex, false);
+        await toggleNumberButton(imageIndex, true);
     };
 
     var playButton = $('<img id="playButton" src="/images/play.svg" />');
@@ -812,6 +880,11 @@ $(function () {
         return divNode;
     };
 
+    var skipGallery = async function () {
+        photo = rp.photos[rp.session.activeIndex];
+        if (!photo.data.is_gallery) { return; }
+        nextSlide(photo.galleryTotal - photo.galleryItem + 1);
+    }
 
     var verifyNsfwMakesSense = function () {
         // Cases when you forgot NSFW off but went to /r/nsfw
