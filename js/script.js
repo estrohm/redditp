@@ -470,7 +470,7 @@ $(function () {
         canCheckArchive = false;
 
         const index = rp.session.activeIndex;
-        $.ajax(`https://archive.org/wayback/available?url=${rp.photos[index].url}&timestamp=${formatDate(new Date(rp.photos[index].data.created * 1000))}`, {
+        $.ajax(`https://archive.org/wayback/available?url=${encodeURIComponent(rp.photos[index].url)}&timestamp=${formatDate(new Date(rp.photos[index].data.created * 1000))}`, {
             dataType: "json",
             success: data => {
                 // this could do with some additonal error handling
