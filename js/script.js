@@ -451,7 +451,11 @@ $(function () {
     var canCheckArchive = true;
     var getArchived = function() {
         if (!canCheckArchive) {
-            console.log("callout is running and/or image is already replaced with archived version");
+            console.log("callout is running");
+            return;
+        } else if (rp.photos[rp.session.activeIndex].url.indexOf("archive.org") >= 0) {
+            console.log("image is already replaced with archived version");
+            return;
         }
         canCheckArchive = false;
 
@@ -462,6 +466,7 @@ $(function () {
                 // this could do with some additonal error handling
                 // not all snapshots are created equal, some are still just 404s
                 // but i don't have motivation to make a 404-checker
+                canCheckArchive = true;
                 console.log("got response from archive: ", data);
                 if (
                     data &&
@@ -498,6 +503,13 @@ $(function () {
 
     function formatDate(d) {
         return `${d.getFullYear()}${leftPad(''+d.getMonth(), 2, '0')}${leftPad(''+d.getDate(), 2, 0)}`;
+    }
+
+    function leftPad(str, len, chr) {
+        while (str.length < len) {
+            str = chr + str;
+        }
+        return str;
     }
 
     // Reloads the current slide
