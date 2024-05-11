@@ -9,7 +9,7 @@
 // TODO: refactor all the globals to use the rp object's namespace.
 var rp = {};
 
-bar galleryOffset = 0;
+var galleryOffset = 0;
 rp.settings = {
     debug: true,
     // Speed of the animation
