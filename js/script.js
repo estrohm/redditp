@@ -447,6 +447,61 @@ $(function () {
         //preLoadImages(pic.url);
     };
 
+    var getArchived = function() {
+        const index = rp.session.activeIndex;
+        if (rp.photos[index].url.indexOf("archive.org") >= 0) {
+            console.log("image is already replaced with archived version");
+            return;
+        }
+
+        $.ajax("https://archive.org/wayback/available?url=" + rp.photos[index].url, {
+            dataType: "json",
+            success: data => {
+                // this could do with some additonal error handling
+                // not all snapshots are created equal, some are still just 404s
+                // but i don't have motivation to make a 404-checker
+                console.log("got response from archive: ", data);
+                if (
+                    data &&
+                    data.archived_snapshots &&
+                    data.archived_snapshots.closest &&
+                    data.archived_snapshots.closest.url
+                ) {
+                    var newUrl = data.archived_snapshots.closest.url
+                        .split("/")
+                        .map(function(str, index) {
+                            if (index === 4) {
+                                return str + "if_";
+                            } else {
+                                return str;
+                            }
+                        })
+                        .join("/")
+                        .replace("http://", "https://");
+                    rp.photos[index].url = newUrl;
+                    rp.cache[index] = null;
+                    reloadSlide();
+                    toastr.success('archived version successfully substituded', null, {timeOut:1500});
+                } else {
+                    console.log("archive.org did not have a snapshot");
+                    toastr.error("archive.org did not have a snapshot");
+                }
+            },
+            error: function() {
+                console.error("jquery ajax failed ???");
+                toastr.error("archive.org did not respond");
+            }
+        });
+    }
+
+    // Reloads the current slide
+    // Useful if the photo url has changed, such as being replaced by an archive
+    var reloadSlide = function() {
+        var index = rp.session.activeIndex;
+        saveHistory(index, true);
+        startAnimation(index);
+    }
+
     const arrow = {
         left: 37,
         up: 38,
@@ -470,6 +525,7 @@ $(function () {
     const T_KEY = 84;
     const U_KEY = 85;
     const W_KEY = 87;
+    const X_KEY = 88;
 
 
     // Register keyboard events on the whole document
@@ -516,6 +572,9 @@ $(function () {
                 break;
             case M_KEY:
                 toggleSound();
+                break;
+            case X_KEY:
+                getArchived();
                 break;
             case PAGEUP:
             case arrow.left:
@@ -595,7 +654,7 @@ $(function () {
         loadHistory(event.state);
     };
 
-    var saveHistory = function (index) {
+    var saveHistory = function (index, isReplacement = false) {
         if (window.history == null) {
             return; // History api is not supported, do nothing
         }
@@ -607,7 +666,11 @@ $(function () {
                 index: index,
                 url: photo.url,
             };
-            history.pushState(lastSavedHistoryState, photo.title);
+            if (!isReplacement) {
+                history.pushState(lastSavedHistoryState, photo.title);
+            } else {
+                history.replaceState(lastSavedHistoryState, photo.title);
+            }
         }
     };
 
@@ -641,9 +704,9 @@ $(function () {
             return;
         }
 
-        // If the same number has been chosen, or the index is outside the
-        // rp.photos range, or we're already animating, do nothing
-        if (rp.session.activeIndex === imageIndex || imageIndex > rp.photos.length - 1 || imageIndex < 0 || rp.session.isAnimating || rp.photos.length === 0) {
+        // If the index is outside the rp.photos range
+        // or we're already animating, do nothing
+        if (imageIndex > rp.photos.length - 1 || imageIndex < 0 || rp.session.isAnimating || rp.photos.length === 0) {
             return;
         }
 
@@ -767,12 +830,8 @@ $(function () {
     // Slides the background photos
     //
     var slideBackgroundPhoto = function (imageIndex) {
-        var divNode;
-        if (rp.cache[imageIndex] === undefined) {
-            divNode = createDiv(imageIndex);
-        } else {
-            divNode = rp.cache[imageIndex];
-        }
+        // Fetch from the cache if possible, otherwise make a new one
+        var divNode = rp.cache[imageIndex] || createDiv(imageIndex);
 
         divNode.prependTo(pictureSliderId);
         fixRedditVideo(imageIndex);
