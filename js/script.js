@@ -447,14 +447,16 @@ $(function () {
         //preLoadImages(pic.url);
     };
 
+    // 
+    var canCheckArchive = true;
     var getArchived = function() {
-        const index = rp.session.activeIndex;
-        if (rp.photos[index].url.indexOf("archive.org") >= 0) {
-            console.log("image is already replaced with archived version");
-            return;
+        if (!canCheckArchive) {
+            console.log("callout is running and/or image is already replaced with archived version");
         }
+        canCheckArchive = false;
 
-        $.ajax("https://archive.org/wayback/available?url=" + rp.photos[index].url, {
+        const index = rp.session.activeIndex;
+        $.ajax(`https://archive.org/wayback/available?url=${rp.photos[index].url}&timestamp=${formatDate(new Date(rp.photos[index].data.created * 1000))}`, {
             dataType: "json",
             success: data => {
                 // this could do with some additonal error handling
@@ -492,6 +494,10 @@ $(function () {
                 toastr.error("archive.org did not respond");
             }
         });
+    }
+
+    function formatDate(d) {
+        return `${d.getFullYear()}${leftPad(''+d.getMonth(), 2, '0')}${leftPad(''+d.getDate(), 2, 0)}`;
     }
 
     // Reloads the current slide
