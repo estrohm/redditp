@@ -159,10 +159,10 @@ $(function () {
 
     $("#pictureSlider").touchwipe({
         // wipeLeft means the user moved his finger from right to left.
-        wipeLeft: nextSlide,
-        wipeRight: prevSlide,
-        wipeUp: nextSlide,
-        wipeDown: prevSlide,
+        wipeLeft: () => nextSlide(),
+        wipeRight: () => prevSlide(),
+        wipeUp: () => nextSlide(),
+        wipeDown: () => prevSlide(),
         min_move_x: 20,
         min_move_y: 20,
         preventDefaultEvents: false
@@ -335,8 +335,8 @@ $(function () {
 
         $('#timeToNextSlide').keyup(updateTimeToNextSlide);
 
-        $('#prevButton').click(prevSlide);
-        $('#nextButton').click(nextSlide);
+        $('#prevButton').click(() => prevSlide());
+        $('#nextButton').click(() => nextSlide());
     };
 
     var addNumberButton = function (numberButton) {
@@ -373,46 +373,28 @@ $(function () {
 
         // for (i = 0; i < rp.photos.length; i += 1) {
         //     if (pic.url === rp.photos[i].url) {
-        if (!item.data.is_gallery) {
-            var pic = embedit.redditItemToPic(item);
-            if (!pic) {
-                return;
+        if (item.data.is_gallery || isCrosspostGallery(item)) {
+            let dataSource;
+            if (item.data.crosspost_parent_list) {
+                dataSource = item.data.crosspost_parent_list.find(parent => parent.is_gallery);
+            } else {
+                dataSource = item.data;
             }
-            if (rp.photos.some(photo => photo.url === pic.url)) {
-                return;
-            }
-            rp.photos.push(pic);
-            rp.session.foundOneImage = true;
-            
-            var i = rp.photos.length - 1;
-            var numberButton = $("<a />").html((i+1)-galleryOffset)
-                .data("index", i)
-                .attr("title", rp.photos[i].title)
-                .attr("id", "numberButton" + (i+1));
-            if (pic.over18) {
-                numberButton.addClass("over18");
-            }
-            numberButton.click(function () {
-                showImage($(this));
-            });
-            numberButton.addClass("numberButton");
-            addNumberButton(numberButton);
-        } else {
             const x = (rp.photos.length + 1) - galleryOffset;
-            galleryOffset += item.data.gallery_data.items.length - 1;
-            $.each(item.data.gallery_data.items, function (j, image) {
+            galleryOffset += dataSource.gallery_data.items.length - 1;
+            $.each(dataSource.gallery_data.items, function (j, image) {
                 pic = {
-                    "title": item.data.title,
-                    "url": `https://i.redd.it/${image.media_id}.${item.data.media_metadata[image.media_id].m.split('/')[1]}`,
-                    "data": item.data,
-                    "commentsLink": item.data.url,
-                    "over18": item.data.over_18,
-                    "isVideo": item.data.is_video,
-                    "subreddit": item.data.subreddit,
+                    "title": dataSource.title,
+                    "url": `https://i.redd.it/${image.media_id}.${dataSource.media_metadata[image.media_id].m.split('/')[1]}`,
+                    "data": dataSource,
+                    "commentsLink": dataSource.url,
+                    "over18": dataSource.over_18,
+                    "isVideo": dataSource.is_video,
+                    "subreddit": dataSource.subreddit,
                     "galleryItem": j+1,
-                    "galleryTotal": item.data.gallery_data.items.length,
-                    "userLink": item.data.author,
-                    "type": item.data.media_metadata[image.media_id].m.split('/')[0]
+                    "galleryTotal": dataSource.gallery_data.items.length,
+                    "userLink": dataSource.author,
+                    "type": dataSource.media_metadata[image.media_id].m.split('/')[0]
                 };
                 if (rp.photos.some(photo => photo.url === pic.url)) {
                     return;
@@ -438,6 +420,30 @@ $(function () {
                 showImage($(this));
             });
             addNumberButton(numberButton);
+        } else {
+            var pic = embedit.redditItemToPic(item);
+            if (!pic) {
+                return;
+            }
+            if (rp.photos.some(photo => photo.url === pic.url)) {
+                return;
+            }
+            rp.photos.push(pic);
+            rp.session.foundOneImage = true;
+            
+            var i = rp.photos.length - 1;
+            var numberButton = $("<a />").html((i+1)-galleryOffset)
+                .data("index", i)
+                .attr("title", rp.photos[i].title)
+                .attr("id", "numberButton" + (i+1));
+            if (pic.over18) {
+                numberButton.addClass("over18");
+            }
+            numberButton.click(function () {
+                showImage($(this));
+            });
+            numberButton.addClass("numberButton");
+            addNumberButton(numberButton);
         }
 
 
@@ -446,6 +452,10 @@ $(function () {
         // My high-end desktop browser was unresponsive at times.
         //preLoadImages(pic.url);
     };
+
+    var isCrosspostGallery = function(item) {
+        return item.data.crosspost_parent_list && item.data.crosspost_parent_list.some(parent => parent.is_gallery);
+    }
 
     // 
     var canCheckArchive = true;
