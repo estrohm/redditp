@@ -884,7 +884,14 @@ $(function () {
             // only fix reddit videos
             return;
         }
-        var url = photo.data.secure_media.reddit_video.dash_url;
+        var url;
+        if (photo.data.crosspost_parent_list && photo.data.crosspost_parent_list.length) {
+            url = photo.data.crosspost_parent_list[0].secure_media.reddit_video.dash_url;
+        } else {
+            url = photo.data.secure_media.reddit_video.dash_url;
+        }
+        if (!url) { return; }
+
         var player = dashjs.MediaPlayer().create();
         player.initialize(document.querySelector("video"), url, true);
     }
