@@ -380,46 +380,50 @@ $(function () {
             } else {
                 dataSource = item.data;
             }
-            const x = (rp.photos.length + 1) - galleryOffset;
-            galleryOffset += dataSource.gallery_data.items.length - 1;
-            $.each(dataSource.gallery_data.items, function (j, image) {
-                pic = {
-                    "title": dataSource.title,
-                    "url": `https://i.redd.it/${image.media_id}.${dataSource.media_metadata[image.media_id].m.split('/')[1]}`,
-                    "data": dataSource,
-                    "commentsLink": dataSource.url,
-                    "over18": dataSource.over_18,
-                    "isVideo": dataSource.is_video,
-                    "subreddit": dataSource.subreddit,
-                    "galleryItem": j+1,
-                    "galleryTotal": dataSource.gallery_data.items.length,
-                    "userLink": dataSource.author,
-                    "type": dataSource.media_metadata[image.media_id].m.split('/')[0]
-                };
-                if (rp.photos.some(photo => photo.url === pic.url)) {
-                    return;
-                }
-                rp.photos.push(pic);
-                rp.session.foundOneImage = true;
-            });
+            // Apparently not all gallery posts have gallery data???
+            // Seems to be an issue for removed posts, which shouldn't really show up anyways but one snuck in to ruin my day
+            if (dataSource.gallery_data) {
+                const x = (rp.photos.length + 1) - galleryOffset;
+                galleryOffset += dataSource.gallery_data.items.length - 1;
+                $.each(dataSource.gallery_data.items, function (j, image) {
+                    pic = {
+                        "title": dataSource.title,
+                        "url": `https://i.redd.it/${image.media_id}.${dataSource.media_metadata[image.media_id].m.split('/')[1]}`,
+                        "data": dataSource,
+                        "commentsLink": dataSource.url,
+                        "over18": dataSource.over_18,
+                        "isVideo": dataSource.is_video,
+                        "subreddit": dataSource.subreddit,
+                        "galleryItem": j+1,
+                        "galleryTotal": dataSource.gallery_data.items.length,
+                        "userLink": dataSource.author,
+                        "type": dataSource.media_metadata[image.media_id].m.split('/')[0]
+                    };
+                    if (rp.photos.some(photo => photo.url === pic.url)) {
+                        return;
+                    }
+                    rp.photos.push(pic);
+                    rp.session.foundOneImage = true;
+                });
 
-            // This section doesn't make any sense. What is "pic" supposed to be? Right now it's the last image in the gallery (i think)
-            var i = rp.photos.length - 1;
-            var numberButton = $("<a />").html(x)
-                .data("index", i - (rp.photos[i].galleryItem - 1))
-                .attr("title", rp.photos[i].title)
-                .attr("id", "numberButton" + ((i + 1) - (rp.photos[i].galleryTotal - 1)))
-                .addClass("gallery")
-                .addClass("numberButton");
-            if (pic.over18) {
-                numberButton.append($("<a />").html(`/${rp.photos[i].galleryTotal}`).css({fontSize: 10}).addClass("over18"));
-            } else {
-                numberButton.append($("<a />").html(`/${rp.photos[i].galleryTotal}`).css({fontSize: 10}));
+                // This section doesn't make any sense. What is "pic" supposed to be? Right now it's the last image in the gallery (i think)
+                var i = rp.photos.length - 1;
+                var numberButton = $("<a />").html(x)
+                    .data("index", i - (rp.photos[i].galleryItem - 1))
+                    .attr("title", rp.photos[i].title)
+                    .attr("id", "numberButton" + ((i + 1) - (rp.photos[i].galleryTotal - 1)))
+                    .addClass("gallery")
+                    .addClass("numberButton");
+                if (pic.over18) {
+                    numberButton.append($("<a />").html(`/${rp.photos[i].galleryTotal}`).css({fontSize: 10}).addClass("over18"));
+                } else {
+                    numberButton.append($("<a />").html(`/${rp.photos[i].galleryTotal}`).css({fontSize: 10}));
+                }
+                numberButton.click(function() {
+                    showImage($(this));
+                });
+                addNumberButton(numberButton);
             }
-            numberButton.click(function() {
-                showImage($(this));
-            });
-            addNumberButton(numberButton);
         } else {
             var pic = embedit.redditItemToPic(item);
             if (!pic) {
